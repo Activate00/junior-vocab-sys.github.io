@@ -47,7 +47,6 @@
 </head>
 <body>
 <div class="container">
-    <!-- 登录视图 -->
     <div id="login-view">
         <div class="login-container">
             <h1>🔐 授权访问</h1>
@@ -60,7 +59,6 @@
         </div>
     </div>
 
-    <!-- 主应用视图 -->
     <div id="app-view" style="display:none;">
         <div class="user-info">
             <span>👤 <span id="current-user"></span></span>
@@ -109,42 +107,17 @@
 
 <script src="database.js"></script>
 <script>
-// ==================== 用户数据隔离工具函数 ====================
-function getCurrentUser() {
-    return localStorage.getItem('vocab_loggedInUser');
-}
-
-function getHistoryKey() {
-    const user = getCurrentUser();
-    return user ? `hsFinalHistory_${user}` : 'hsFinalHistory';
-}
-function getStatsKey() {
-    const user = getCurrentUser();
-    return user ? `hsTypeStats_${user}` : 'hsTypeStats';
-}
-function getDailyKey() {
-    const user = getCurrentUser();
-    return user ? `hsDailyWords_${user}` : 'hsDailyWords';
-}
-
-function getUserHistory() {
-    return JSON.parse(localStorage.getItem(getHistoryKey())) || {};
-}
-function saveUserHistory(history) {
-    localStorage.setItem(getHistoryKey(), JSON.stringify(history));
-}
-function getUserStats() {
-    return JSON.parse(localStorage.getItem(getStatsKey())) || { cn:0, fill:0, zh_en:0, context:0, listen:0 };
-}
-function saveUserStats(stats) {
-    localStorage.setItem(getStatsKey(), JSON.stringify(stats));
-}
-function getUserDaily() {
-    return JSON.parse(localStorage.getItem(getDailyKey())) || {};
-}
-function saveUserDaily(daily) {
-    localStorage.setItem(getDailyKey(), JSON.stringify(daily));
-}
+// ==================== 用户数据隔离 ====================
+function getCurrentUser() { return localStorage.getItem('vocab_loggedInUser'); }
+function getHistoryKey() { const u = getCurrentUser(); return u ? `hsFinalHistory_${u}` : 'hsFinalHistory'; }
+function getStatsKey() { const u = getCurrentUser(); return u ? `hsTypeStats_${u}` : 'hsTypeStats'; }
+function getDailyKey() { const u = getCurrentUser(); return u ? `hsDailyWords_${u}` : 'hsDailyWords'; }
+function getUserHistory() { return JSON.parse(localStorage.getItem(getHistoryKey())) || {}; }
+function saveUserHistory(h) { localStorage.setItem(getHistoryKey(), JSON.stringify(h)); }
+function getUserStats() { return JSON.parse(localStorage.getItem(getStatsKey())) || { cn:0, fill:0, zh_en:0, context:0, listen:0 }; }
+function saveUserStats(s) { localStorage.setItem(getStatsKey(), JSON.stringify(s)); }
+function getUserDaily() { return JSON.parse(localStorage.getItem(getDailyKey())) || {}; }
+function saveUserDaily(d) { localStorage.setItem(getDailyKey(), JSON.stringify(d)); }
 
 // ==================== 教材配置 ====================
 const BOOKS_CONFIG = [
@@ -196,7 +169,7 @@ function buildSelector() {
     }
 }
 
-// ==================== 密码哈希工具 ====================
+// ==================== 密码哈希 ====================
 async function hashPassword(password) {
     const encoder = new TextEncoder();
     const data = encoder.encode(password);
@@ -211,8 +184,6 @@ function getDefaultExpiry(years) {
     return d.toISOString().slice(0,10);
 }
 
-// 预置30个学生的6位数字密码（固定，以便分发）
-// 为了代码整洁，这里直接列出所有密码（随机生成）
 const STUDENT_PASSWORDS = [
     "742891", "365204", "917638", "284539", "671382",
     "539217", "468025", "197643", "856312", "423975",
@@ -225,40 +196,21 @@ const STUDENT_PASSWORDS = [
 async function initUserStorage() {
     let storedUsers = localStorage.getItem('vocab_users');
     if (!storedUsers) {
-        // 构建用户列表
         let users = [];
-        // 管理员密码 ad@262!
         const adminHash = await hashPassword("ad@262!");
         users.push({ username: "admin", passwordHash: adminHash, expiry: "2099-12-31" });
-        // 添加30个学生
         for (let i = 1; i <= 30; i++) {
-            const password = STUDENT_PASSWORDS[i-1];
-            const pwdHash = await hashPassword(password);
-            users.push({
-                username: `student${i}`,
-                passwordHash: pwdHash,
-                expiry: getDefaultExpiry(2)
-            });
+            const pwdHash = await hashPassword(STUDENT_PASSWORDS[i-1]);
+            users.push({ username: `student${i}`, passwordHash: pwdHash, expiry: getDefaultExpiry(2) });
         }
         localStorage.setItem('vocab_users', JSON.stringify(users));
-        // 可选：在控制台输出学生账户密码，方便管理员分发（但为了安全，生产环境可删除此行）
         console.log("学生账户密码列表（请妥善保管）:");
-        for (let i = 1; i <= 30; i++) {
-            console.log(`student${i} : ${STUDENT_PASSWORDS[i-1]}`);
-        }
-        console.log("管理员账户 admin 密码: ad@262!");
+        for (let i = 1; i <= 30; i++) console.log(`student${i} : ${STUDENT_PASSWORDS[i-1]}`);
+        console.log("admin 密码: ad@262!");
     } else {
-        // 如果已有用户数据，确保至少 admin 存在且密码正确（避免旧数据干扰，但不强制覆盖）
         let existing = JSON.parse(storedUsers);
-        // 保证每个用户都有 expiry 字段
         let needUpdate = false;
-        for (let user of existing) {
-            if (!user.expiry) {
-                user.expiry = getDefaultExpiry(2);
-                needUpdate = true;
-            }
-        }
-        // 检查 admin 是否存在，若无则添加
+        for (let user of existing) if (!user.expiry) { user.expiry = getDefaultExpiry(2); needUpdate = true; }
         if (!existing.find(u => u.username === 'admin')) {
             const adminHash = await hashPassword("ad@262!");
             existing.push({ username: "admin", passwordHash: adminHash, expiry: "2099-12-31" });
@@ -268,38 +220,20 @@ async function initUserStorage() {
     }
 }
 
-function getAllUsers() {
-    return JSON.parse(localStorage.getItem('vocab_users')) || [];
-}
-function isUserExpired(expiry) {
-    if (!expiry) return true;
-    const today = new Date().toISOString().slice(0,10);
-    return expiry < today;
-}
+function getAllUsers() { return JSON.parse(localStorage.getItem('vocab_users')) || []; }
+function isUserExpired(expiry) { if (!expiry) return true; const today = new Date().toISOString().slice(0,10); return expiry < today; }
 
 async function attemptLogin() {
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value.trim();
     const errorDiv = document.getElementById('login-error');
-    if (!username || !password) {
-        errorDiv.innerText = '请输入用户名和密码';
-        return;
-    }
+    if (!username || !password) { errorDiv.innerText = '请输入用户名和密码'; return; }
     let users = getAllUsers();
     let user = users.find(u => u.username === username);
-    if (!user) {
-        errorDiv.innerText = '用户名或密码错误';
-        return;
-    }
+    if (!user) { errorDiv.innerText = '用户名或密码错误'; return; }
     const inputHash = await hashPassword(password);
-    if (inputHash !== user.passwordHash) {
-        errorDiv.innerText = '用户名或密码错误';
-        return;
-    }
-    if (isUserExpired(user.expiry)) {
-        errorDiv.innerText = '账户已过期，请联系管理员';
-        return;
-    }
+    if (inputHash !== user.passwordHash) { errorDiv.innerText = '用户名或密码错误'; return; }
+    if (isUserExpired(user.expiry)) { errorDiv.innerText = '账户已过期，请联系管理员'; return; }
     localStorage.setItem('vocab_loggedInUser', username);
     showAppView();
 }
@@ -307,8 +241,7 @@ async function attemptLogin() {
 function showAppView() {
     document.getElementById('login-view').style.display = 'none';
     document.getElementById('app-view').style.display = 'block';
-    const username = getCurrentUser();
-    document.getElementById('current-user').innerText = username || '用户';
+    document.getElementById('current-user').innerText = getCurrentUser() || '用户';
     if (typeof buildSelector === 'function') buildSelector();
     renderCharts();
 }
@@ -328,19 +261,12 @@ async function checkLoginStatus() {
     if (loggedIn) {
         let users = getAllUsers();
         let user = users.find(u => u.username === loggedIn);
-        if (!user || isUserExpired(user.expiry)) {
-            logout();
-            alert('账户已失效或过期，请重新登录');
-        } else {
-            showAppView();
-        }
-    } else {
-        document.getElementById('login-view').style.display = 'block';
-        document.getElementById('app-view').style.display = 'none';
-    }
+        if (!user || isUserExpired(user.expiry)) { logout(); alert('账户已失效或过期，请重新登录'); }
+        else showAppView();
+    } else { document.getElementById('login-view').style.display = 'block'; document.getElementById('app-view').style.display = 'none'; }
 }
 
-// ==================== 词汇系统核心逻辑 ====================
+// ==================== 词汇核心逻辑 ====================
 let activePool = [], wrongList = [], currIdx = 0, hasAnswered = false, currentType = 'cn', currentListenSubtype = '';
 let radarChart, lineChart;
 
@@ -358,13 +284,11 @@ function toHome() { showView('home-view'); }
 
 function initQuiz() {
     let selectedUnits = [];
-    document.querySelectorAll('#book-selector-area input[type="checkbox"]:checked').forEach(cb => {
-        selectedUnits.push(cb.value);
-    });
+    document.querySelectorAll('#book-selector-area input[type="checkbox"]:checked').forEach(cb => selectedUnits.push(cb.value));
     if(selectedUnits.length === 0) { alert("请至少选择一个单元"); return; }
     currentType = document.querySelector('input[name="qtype"]:checked').value;
     activePool = getDb().filter(item => selectedUnits.includes(String(item.unit)));
-    if(activePool.length === 0) { alert("所选单元无词汇数据，请检查数据库"); return; }
+    if(activePool.length === 0) { alert("所选单元无词汇数据"); return; }
     activePool = shuffle(activePool);
     wrongList = []; currIdx = 0;
     showView('quiz-view');
@@ -380,16 +304,13 @@ function renderQuestion() {
     document.getElementById('opts-box').style.display = 'none';
     document.getElementById('input-box').style.display = 'none';
     const inputField = document.getElementById('blank-input');
-    if (inputField) {
-        inputField.value = '';
-        inputField.style.backgroundColor = '#fff';
-        inputField.placeholder = '输入单词';
-    }
+    if (inputField) { inputField.value = ''; inputField.style.backgroundColor = '#fff'; inputField.placeholder = '输入单词'; }
     const qTextDiv = document.getElementById('q-text');
     if(currentType === 'cn') {
         document.getElementById('info-mode').innerText = "📘 英译中";
         document.getElementById('opts-box').style.display = 'flex';
-        qTextDiv.innerHTML = `<span style="font-size:32px; font-weight:bold;">${q.word}</span><div class="hint-text">词性：${q.pos}</div>`;
+        // 题目只显示英文单词，不显示词性
+        qTextDiv.innerHTML = `<span style="font-size:32px; font-weight:bold;">${q.word}</span>`;
         genOptions(q, 'cn_opt');
     } else if(currentType === 'fill') {
         document.getElementById('info-mode').innerText = "✍️ 语境挖空";
@@ -495,50 +416,22 @@ function logError(obj) {
     history[obj.word].count++;
     saveUserHistory(history);
 }
-function logTypeStatistics(t) {
-    let stats = getUserStats();
-    stats[t] = (stats[t] || 0) + 1;
-    saveUserStats(stats);
-}
-function logDailyWordPassed(w) {
-    let today = new Date().toLocaleDateString();
-    let daily = getUserDaily();
-    if (!daily[today]) daily[today] = [];
-    if (!daily[today].includes(w)) daily[today].push(w);
-    saveUserDaily(daily);
-}
+function logTypeStatistics(t) { let stats = getUserStats(); stats[t] = (stats[t] || 0) + 1; saveUserStats(stats); }
+function logDailyWordPassed(w) { let today = new Date().toLocaleDateString(); let daily = getUserDaily(); if(!daily[today]) daily[today]=[]; if(!daily[today].includes(w)) daily[today].push(w); saveUserDaily(daily); }
 function renderCharts() {
     let stats = getUserStats();
-    if (radarChart) radarChart.destroy();
+    if(radarChart) radarChart.destroy();
     let ctxRadar = document.getElementById('radarChart');
-    if (ctxRadar) {
-        radarChart = new Chart(ctxRadar, {
-            type: 'radar',
-            data: {
-                labels: ['英译中','挖空','中译英','辨析','听写'],
-                datasets: [{
-                    label: '练习次数',
-                    data: [stats.cn, stats.fill, stats.zh_en, stats.context, stats.listen],
-                    backgroundColor: 'rgba(76,175,80,0.2)',
-                    borderColor: '#4caf50'
-                }]
-            },
-            options: { scales: { r: { beginAtZero: true } } }
-        });
+    if(ctxRadar) {
+        radarChart = new Chart(ctxRadar, { type:'radar', data:{ labels:['英译中','挖空','中译英','辨析','听写'], datasets:[{ label:'练习次数', data:[stats.cn, stats.fill, stats.zh_en, stats.context, stats.listen], backgroundColor:'rgba(76,175,80,0.2)', borderColor:'#4caf50' }] }, options:{ scales:{ r:{ beginAtZero:true } } } });
     }
     let daily = getUserDaily();
     let dates = Object.keys(daily).sort();
-    let counts = dates.map(d => daily[d].length);
+    let counts = dates.map(d=>daily[d].length);
     let ctxLine = document.getElementById('lineChart');
-    if (ctxLine) {
-        if (lineChart) lineChart.destroy();
-        lineChart = new Chart(ctxLine, {
-            type: 'line',
-            data: {
-                labels: dates.length ? dates : [new Date().toLocaleDateString()],
-                datasets: [{ label: '每日新词', data: counts.length ? counts : [0], borderColor: '#2ecc71', fill: true }]
-            }
-        });
+    if(ctxLine) {
+        if(lineChart) lineChart.destroy();
+        lineChart = new Chart(ctxLine, { type:'line', data:{ labels:dates.length?dates:[new Date().toLocaleDateString()], datasets:[{ label:'每日新词', data:counts.length?counts:[0], borderColor:'#2ecc71', fill:true }] } });
     }
 }
 function showResult() {
@@ -554,42 +447,28 @@ function retryCurrentWrongs(){ activePool=shuffle([...wrongList]); wrongList=[];
 function openWrongBook(){
     showView('history-view');
     let history = getUserHistory();
-    let box = document.getElementById('history-list');
-    box.innerHTML = '';
-    let arr = Object.keys(history).map(k => ({ word: k, ...history[k] })).sort((a,b) => b.count - a.count);
-    if(arr.length === 0){ box.innerHTML='<p>暂无错题</p>'; return; }
-    arr.forEach(i => {
-        box.innerHTML += `<div class="list-item"><span><strong>${i.word}</strong> ${i.pos} ${i.cn}</span><span class="badge">错${i.count}次</span></div>`;
-    });
+    let box = document.getElementById('history-list'); box.innerHTML='';
+    let arr = Object.keys(history).map(k=>({word:k, ...history[k]})).sort((a,b)=>b.count-a.count);
+    if(arr.length===0){ box.innerHTML='<p>暂无错题</p>'; return; }
+    arr.forEach(i=>{ box.innerHTML+=`<div class="list-item"><span><strong>${i.word}</strong> ${i.pos} ${i.cn}</span><span class="badge">错${i.count}次</span></div>`; });
 }
 function startHistoryQuiz(){
     let history = getUserHistory();
     let db = getDb();
-    let pool = Object.keys(history).map(k => db.find(g => g.word === k)).filter(v => v);
-    if(pool.length === 0) return;
-    activePool = shuffle(pool);
-    wrongList = [];
-    currIdx = 0;
-    currentType = 'cn';
-    showView('quiz-view');
-    renderQuestion();
+    let pool = Object.keys(history).map(k=>db.find(g=>g.word===k)).filter(v=>v);
+    if(pool.length===0) return;
+    activePool=shuffle(pool); wrongList=[]; currIdx=0; currentType='cn'; showView('quiz-view'); renderQuestion();
 }
 function clearHistory(){
     if(confirm("清除当前用户的所有学习数据？")){
-        localStorage.removeItem(getHistoryKey());
-        localStorage.removeItem(getStatsKey());
-        localStorage.removeItem(getDailyKey());
-        openWrongBook();
-        renderCharts();
+        localStorage.removeItem(getHistoryKey()); localStorage.removeItem(getStatsKey()); localStorage.removeItem(getDailyKey());
+        openWrongBook(); renderCharts();
     }
 }
 document.getElementById('blank-input')?.addEventListener('keypress',e=>{if(e.key==='Enter')checkSpellAnswer();});
 function confirmQuit(){ if(confirm("终止练习？")) showResult(); }
 
-// 启动
-initUserStorage().then(() => {
-    checkLoginStatus();
-});
+initUserStorage().then(() => checkLoginStatus());
 </script>
 </body>
 </html>
