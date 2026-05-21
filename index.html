@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>初中英语外研版词汇智能复习系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --primary: #2c6e2f; --accent: #4caf50; --success: #2ecc71; --danger: #e74c3c; --bg: #f5f7fa; }
+        * { box-sizing: border-box; }
+        body { font-family: 'PingFang SC', 'Segoe UI', Arial, sans-serif; background-color: var(--bg); color: #2c3e50; margin: 0; padding: 15px; display: flex; justify-content: center; min-height: 100vh; }
+        .container { background: white; max-width: 800px; width: 100%; padding: 20px; border-radius: 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+        h1 { font-size: 22px; color: var(--primary); margin: 0 0 5px; }
+        .subtitle { color: #7f8c8d; font-size: 13px; margin-bottom: 20px; border-bottom: 1px solid #eef2f6; padding-bottom: 8px; }
+        .section-title { font-weight: bold; margin: 20px 0 12px 0; color: var(--primary); }
+        .book-card { border: 1px solid #e9edf2; border-radius: 20px; padding: 12px; margin-bottom: 20px; background: #fefefe; }
+        .book-header { font-weight: 800; background: #f1f5f9; display: inline-block; padding: 5px 15px; border-radius: 30px; margin-bottom: 12px; }
+        .unit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+        .card-checkbox { display: none; }
+        .card-label { background: #f8fafc; border: 1.5px solid #e2e8f0; padding: 8px 5px; border-radius: 14px; text-align: center; cursor: pointer; font-size: 12px; font-weight: 600; display: block; transition: 0.2s; }
+        .card-checkbox:checked + .card-label { background: #e0f2fe; border-color: var(--accent); color: #0369a1; }
+        .word-count { font-size: 10px; font-weight: normal; color: #5f7f9e; display: block; margin-top: 4px; }
+        .quiz-header { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 13px; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .question-box { background: #fafcff; padding: 20px; border-radius: 20px; border-left: 5px solid var(--accent); margin: 20px 0; }
+        .options-list { display: flex; flex-direction: column; gap: 12px; }
+        .opt-btn { background: white; border: 2px solid #e2edf7; padding: 12px; border-radius: 16px; cursor: pointer; text-align: left; transition: 0.1s; }
+        .correct { background: #2ecc71 !important; color: white; border-color: #1f8b4c; }
+        .wrong { background: #e74c3c !important; color: white; border-color: #b91c1c; }
+        .input-container { display: flex; gap: 10px; margin: 20px 0; }
+        .text-input { flex: 1; padding: 12px; border-radius: 40px; border: 2px solid #cbd5e6; text-align: center; font-size: 16px; }
+        .action-btn { width: 100%; padding: 12px; border-radius: 40px; border: none; font-weight: bold; color: white; margin-top: 12px; cursor: pointer; }
+        .btn-blue { background: var(--accent); }
+        .btn-red { background: var(--danger); }
+        .btn-gray { background: #94a3b8; }
+        .btn-quit { background: #fff0f0; color: #e74c3c; border: 1px solid #fbc4c4; padding: 5px 12px; border-radius: 30px; cursor: pointer; font-size: 12px; }
+        .scroll-list { max-height: 260px; overflow-y: auto; background: #fafcff; padding: 12px; border-radius: 20px; border: 1px solid #e9edf2; margin: 15px 0; }
+        .list-item { display: flex; justify-content: space-between; border-bottom: 1px dashed #e2edf7; padding: 8px 0; }
+        .badge { background: #e74c3c; color: white; padding: 2px 8px; border-radius: 20px; font-size: 11px; }
+        .chart-box { background: #fff; border-radius: 20px; padding: 12px; margin-top: 15px; border: 1px solid #eef2f8; }
+        .audio-btn { background: #eef2ff; border: none; padding: 8px 20px; border-radius: 40px; font-weight: bold; margin-bottom: 10px; cursor: pointer; }
+        .login-container { text-align: center; padding: 20px; }
+        .login-input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 40px; border: 2px solid #cbd5e6; text-align: center; font-size: 16px; }
+        .error-msg { color: #e74c3c; font-size: 13px; margin: 8px 0; }
+        .user-info { display: flex; justify-content: flex-end; align-items: center; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
+        .hint-text { color: #5f7f9e; font-size: 13px; margin-top: 8px; }
+        
+        /* 模态框样式 */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 20px; border-radius: 20px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
+        .modal-content h3 { margin-top: 0; }
+        .user-item { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding: 8px 0; }
+        .user-item button { font-size: 11px; padding: 4px 8px; margin-left: 5px; }
+        .add-user-form { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; padding-top: 10px; border-top: 1px solid #ccc; }
+        .add-user-form input { padding: 8px; border-radius: 20px; border: 1px solid #cbd5e6; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- 登录视图 -->
+    <div id="login-view">
+        <div class="login-container">
+            <h1>🔐 授权访问</h1>
+            <p class="subtitle">请输入您的用户名和密码</p>
+            <input type="text" id="login-username" class="login-input" placeholder="用户名" autocomplete="off">
+            <input type="password" id="login-password" class="login-input" placeholder="密码">
+            <div id="login-error" class="error-msg"></div>
+            <button class="action-btn btn-blue" onclick="attemptLogin()">登录</button>
+            <p style="margin-top: 15px; font-size: 12px; color: #94a3b8;">仅限授权用户使用</p>
+        </div>
+    </div>
+
+    <!-- 主应用视图 -->
+    <div id="app-view" style="display:none;">
+        <div class="user-info">
+            <span>👤 <span id="current-user"></span></span>
+            <button id="btn-user-manage" class="btn-quit" style="display:none;" onclick="openUserManageModal()">👥 管理用户</button>
+            <button class="btn-quit" onclick="logout()">🚪 退出登录</button>
+        </div>
+        <div id="home-view">
+            <h1>📚 初中英语外研版词汇系统</h1>
+            <p class="subtitle">七年级上册 ~ 八年级下册 | 全单元覆盖</p>
+            <div id="book-selector-area"></div>
+            <div class="section-title">🎯 题型模式</div>
+            <div class="unit-grid" style="grid-template-columns: repeat(2,1fr); gap:10px; margin-bottom: 20px;">
+                <div><input type="radio" name="qtype" id="t1" class="card-checkbox" value="cn" checked><label for="t1" class="card-label">英译中 (含词性)</label></div>
+                <div><input type="radio" name="qtype" id="t2" class="card-checkbox" value="fill"><label for="t2" class="card-label">语境挖空</label></div>
+                <div><input type="radio" name="qtype" id="t3" class="card-checkbox" value="zh_en"><label for="t3" class="card-label">中译英拼写</label></div>
+                <div><input type="radio" name="qtype" id="t5" class="card-checkbox" value="context"><label for="t5" class="card-label">语义辨析</label></div>
+                <div style="grid-column: span 2;"><input type="radio" name="qtype" id="t4" class="card-checkbox" value="listen"><label for="t4" class="card-label">🎧 智能听写特训</label></div>
+            </div>
+            <button class="action-btn btn-blue" onclick="initQuiz()">🚀 启动所选单元测试</button>
+            <button class="action-btn btn-red" style="background-color:#7c3aed;" onclick="openWrongBook()">📕 错题本</button>
+            <div class="section-title">📊 学情看板</div>
+            <div class="chart-box"><canvas id="radarChart" style="max-height:240px"></canvas></div>
+            <div class="chart-box"><canvas id="lineChart" style="max-height:200px"></canvas></div>
+        </div>
+        <div id="quiz-view" style="display:none;">
+            <div class="quiz-header"><span id="info-mode"></span><span id="info-progress"></span><button class="btn-quit" onclick="confirmQuit()">返回</button></div>
+            <div id="listen-audio-area" style="display:none;"><button class="audio-btn" onclick="playCurrentWord()">🔊 播放发音</button></div>
+            <div class="question-box" id="q-text"></div>
+            <div class="options-list" id="opts-box"></div>
+            <div id="input-box" style="display:none;"><div class="input-container"><input type="text" id="blank-input" class="text-input" placeholder="输入单词" autocomplete="off"><button class="action-btn btn-blue" style="width:100px;" onclick="checkSpellAnswer()">提交</button></div></div>
+        </div>
+        <div id="result-view" style="display:none;">
+            <h1>✅ 通关报告</h1>
+            <div class="question-box" id="result-score" style="border:none; text-align:center;"></div>
+            <div id="curr-wrong-area" style="display:none;"><div class="section-title">错题列表</div><div class="scroll-list" id="curr-wrong-list"></div><button class="action-btn btn-blue" onclick="retryCurrentWrongs()">重练错题</button></div>
+            <button class="action-btn btn-gray" onclick="toHome()">返回首页</button>
+        </div>
+        <div id="history-view" style="display:none;">
+            <h1>📋 错题本</h1>
+            <div class="scroll-list" id="history-list"></div>
+            <button class="action-btn btn-blue" style="background-color:#e67e22;" onclick="startHistoryQuiz()">歼灭错题</button>
+            <button class="action-btn btn-gray" onclick="toHome()">首页</button>
+            <button class="action-btn" style="background-color:#e2e8f0; color:#334155;" onclick="clearHistory()">清除数据</button>
+        </div>
+    </div>
+</div>
+
+<!-- 用户管理模态框 -->
+<div id="userModal" class="modal">
+    <div class="modal-content">
+        <h3>用户管理</h3>
+        <div id="user-list"></div>
+        <div class="add-user-form">
+            <h4>添加新用户</h4>
+            <input type="text" id="new-username" placeholder="用户名" autocomplete="off">
+            <input type="password" id="new-password" placeholder="密码">
+            <input type="date" id="new-expiry" placeholder="有效期至">
+            <button class="action-btn btn-blue" onclick="addUser()">添加用户</button>
+        </div>
+        <button class="action-btn btn-gray" onclick="closeUserModal()" style="margin-top:10px;">关闭</button>
+    </div>
+</div>
+
+<script src="database.js"></script>
+<script>
+// ==================== 教材配置（七年级上含Starter，其他不含）====================
+const BOOKS_CONFIG = [
+    { name: "七年级上册", prefix: "1", unitKeys: ["0", "1", "2", "3", "4", "5", "6"], displayUnits: ["Starter", "Unit 1", "Unit 2", "Unit 3", "Unit 4", "Unit 5", "Unit 6"] },
+    { name: "七年级下册", prefix: "2", unitKeys: ["1", "2", "3", "4", "5", "6"], displayUnits: ["Unit 1", "Unit 2", "Unit 3", "Unit 4", "Unit 5", "Unit 6"] },
+    { name: "八年级上册", prefix: "3", unitKeys: ["1", "2", "3", "4", "5", "6"], displayUnits: ["Unit 1", "Unit 2", "Unit 3", "Unit 4", "Unit 5", "Unit 6"] },
+    { name: "八年级下册", prefix: "4", unitKeys: ["1", "2", "3", "4", "5", "6"], displayUnits: ["Unit 1", "Unit 2", "Unit 3", "Unit 4", "Unit 5", "Unit 6"] }
+];
+
+let vocabularyDb = (typeof globalDatabase !== 'undefined') ? globalDatabase : [];
+let unitWordCount = {};
+vocabularyDb.forEach(item => { let u = item.unit; unitWordCount[u] = (unitWordCount[u] || 0) + 1; });
+
+function buildSelector() {
+    let container = document.getElementById('book-selector-area');
+    if (!container) return;
+    container.innerHTML = '';
+    for (let book of BOOKS_CONFIG) {
+        let card = document.createElement('div');
+        card.className = 'book-card';
+        let header = document.createElement('div');
+        header.className = 'book-header';
+        header.innerText = `📘 ${book.name}`;
+        card.appendChild(header);
+        let grid = document.createElement('div');
+        grid.className = 'unit-grid';
+        for (let i = 0; i < book.unitKeys.length; i++) {
+            let unitKey = book.unitKeys[i];
+            let fullUnit = `${book.prefix}_${unitKey}`;
+            let label = book.displayUnits[i];
+            let count = unitWordCount[fullUnit] || 0;
+            let id = `unit_${fullUnit.replace(/_/g, '-')}`;
+            let wrapper = document.createElement('div');
+            let chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.id = id;
+            chk.className = 'card-checkbox';
+            chk.value = fullUnit;
+            let lbl = document.createElement('label');
+            lbl.htmlFor = id;
+            lbl.className = 'card-label';
+            lbl.innerHTML = `${label}<span class="word-count">${count} 词</span>`;
+            wrapper.appendChild(chk);
+            wrapper.appendChild(lbl);
+            grid.appendChild(wrapper);
+        }
+        card.appendChild(grid);
+        container.appendChild(card);
+    }
+}
+
+// ==================== 用户管理（带有效期）====================
+// 预设用户：admin永不过期，teacher和student有效期2年（从今天算起）
+function getDefaultExpiry(years) {
+    let d = new Date();
+    d.setFullYear(d.getFullYear() + years);
+    return d.toISOString().slice(0,10);
+}
+const DEFAULT_USERS = [
+    { username: "admin", password: "admin123", expiry: "2099-12-31" },
+    { username: "teacher", password: "english2025", expiry: getDefaultExpiry(2) },
+    { username: "student", password: "123456", expiry: getDefaultExpiry(2) }
+];
+
+function initUserStorage() {
+    let storedUsers = localStorage.getItem('vocab_users');
+    if (!storedUsers) {
+        localStorage.setItem('vocab_users', JSON.stringify(DEFAULT_USERS));
+    } else {
+        // 合并旧数据，确保每个用户都有expiry字段
+        let existing = JSON.parse(storedUsers);
+        let needUpdate = false;
+        for (let user of existing) {
+            if (!user.expiry) {
+                user.expiry = getDefaultExpiry(2);
+                needUpdate = true;
+            }
+        }
+        // 确保预设用户都存在
+        for (let def of DEFAULT_USERS) {
+            if (!existing.find(u => u.username === def.username)) {
+                existing.push(def);
+                needUpdate = true;
+            }
+        }
+        if (needUpdate) localStorage.setItem('vocab_users', JSON.stringify(existing));
+    }
+}
+
+function getAllUsers() {
+    return JSON.parse(localStorage.getItem('vocab_users')) || [];
+}
+
+function saveUsers(users) {
+    localStorage.setItem('vocab_users', JSON.stringify(users));
+}
+
+function isUserExpired(expiry) {
+    if (!expiry) return true;
+    const today = new Date().toISOString().slice(0,10);
+    return expiry < today;
+}
+
+function attemptLogin() {
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value.trim();
+    const errorDiv = document.getElementById('login-error');
+    if (!username || !password) {
+        errorDiv.innerText = '请输入用户名和密码';
+        return;
+    }
+    let users = getAllUsers();
+    let user = users.find(u => u.username === username && u.password === password);
+    if (!user) {
+        errorDiv.innerText = '用户名或密码错误';
+        return;
+    }
+    if (isUserExpired(user.expiry)) {
+        errorDiv.innerText = '账户已过期，请联系管理员';
+        return;
+    }
+    // 登录成功
+    localStorage.setItem('vocab_loggedInUser', username);
+    showAppView();
+}
+
+function showAppView() {
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('app-view').style.display = 'block';
+    const username = localStorage.getItem('vocab_loggedInUser');
+    document.getElementById('current-user').innerText = username || '用户';
+    // 如果是admin，显示用户管理按钮
+    const manageBtn = document.getElementById('btn-user-manage');
+    if (username === 'admin') {
+        manageBtn.style.display = 'inline-block';
+    } else {
+        manageBtn.style.display = 'none';
+    }
+    if (typeof buildSelector === 'function') {
+        buildSelector();
+        renderCharts();
+    }
+}
+
+function logout() {
+    localStorage.removeItem('vocab_loggedInUser');
+    document.getElementById('app-view').style.display = 'none';
+    document.getElementById('login-view').style.display = 'block';
+    document.getElementById('login-username').value = '';
+    document.getElementById('login-password').value = '';
+    document.getElementById('login-error').innerText = '';
+    if (typeof toHome === 'function') toHome();
+}
+
+function checkLoginStatus() {
+    const loggedIn = localStorage.getItem('vocab_loggedInUser');
+    if (loggedIn) {
+        // 再次检查用户是否仍然有效（可能被管理员删除或过期）
+        let users = getAllUsers();
+        let user = users.find(u => u.username === loggedIn);
+        if (!user || isUserExpired(user.expiry)) {
+            logout();
+            alert('账户已失效或过期，请重新登录');
+        } else {
+            showAppView();
+        }
+    } else {
+        document.getElementById('login-view').style.display = 'block';
+        document.getElementById('app-view').style.display = 'none';
+    }
+}
+
+// 用户管理模态框
+function openUserManageModal() {
+    if (localStorage.getItem('vocab_loggedInUser') !== 'admin') return;
+    renderUserList();
+    document.getElementById('userModal').style.display = 'flex';
+}
+function closeUserModal() {
+    document.getElementById('userModal').style.display = 'none';
+}
+function renderUserList() {
+    let users = getAllUsers();
+    let container = document.getElementById('user-list');
+    container.innerHTML = '';
+    for (let u of users) {
+        let div = document.createElement('div');
+        div.className = 'user-item';
+        div.innerHTML = `
+            <span><strong>${u.username}</strong> (有效期至: ${u.expiry || '未设置'})</span>
+            <div>
+                <button onclick="editUserExpiry('${u.username}')">修改有效期</button>
+                <button onclick="deleteUser('${u.username}')" style="background:#e74c3c; color:white;">删除</button>
+            </div>
+        `;
+        container.appendChild(div);
+    }
+}
+function editUserExpiry(username) {
+    let newExpiry = prompt('请输入新的有效期 (YYYY-MM-DD):', '2026-12-31');
+    if (!newExpiry) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(newExpiry)) {
+        alert('日期格式错误，应为 YYYY-MM-DD');
+        return;
+    }
+    let users = getAllUsers();
+    let user = users.find(u => u.username === username);
+    if (user) {
+        user.expiry = newExpiry;
+        saveUsers(users);
+        renderUserList();
+        // 如果当前登录用户就是被修改的用户，强制重新登录
+        if (localStorage.getItem('vocab_loggedInUser') === username && isUserExpired(newExpiry)) {
+            alert('您的账户已过期，请重新登录');
+            logout();
+        }
+    }
+}
+function deleteUser(username) {
+    if (username === 'admin') {
+        alert('不能删除管理员账户');
+        return;
+    }
+    if (confirm(`确定要删除用户 "${username}" 吗？`)) {
+        let users = getAllUsers();
+        let newUsers = users.filter(u => u.username !== username);
+        saveUsers(newUsers);
+        renderUserList();
+        if (localStorage.getItem('vocab_loggedInUser') === username) {
+            logout();
+            alert('您的账户已被删除，请重新登录');
+        }
+    }
+}
+function addUser() {
+    let username = document.getElementById('new-username').value.trim();
+    let password = document.getElementById('new-password').value.trim();
+    let expiry = document.getElementById('new-expiry').value;
+    if (!username || !password) {
+        alert('用户名和密码不能为空');
+        return;
+    }
+    if (!expiry) {
+        alert('请设置有效期');
+        return;
+    }
+    let users = getAllUsers();
+    if (users.find(u => u.username === username)) {
+        alert('用户名已存在');
+        return;
+    }
+    users.push({ username, password, expiry });
+    saveUsers(users);
+    document.getElementById('new-username').value = '';
+    document.getElementById('new-password').value = '';
+    document.getElementById('new-expiry').value = '';
+    renderUserList();
+    alert('用户添加成功');
+}
+// 点击模态框背景关闭
+window.onclick = function(event) {
+    let modal = document.getElementById('userModal');
+    if (event.target === modal) closeUserModal();
+}
+
+// ==================== 词汇系统核心逻辑 ====================
+let activePool = [], wrongList = [], currIdx = 0, hasAnswered = false, currentType = 'cn', currentListenSubtype = '';
+let radarChart, lineChart;
+
+function getDb() { return vocabularyDb; }
+function shuffle(a) { return a.sort(() => Math.random() - 0.5); }
+function showView(id) {
+    document.getElementById('home-view').style.display = 'none';
+    document.getElementById('quiz-view').style.display = 'none';
+    document.getElementById('result-view').style.display = 'none';
+    document.getElementById('history-view').style.display = 'none';
+    document.getElementById(id).style.display = 'block';
+    if(id === 'home-view') renderCharts();
+}
+function toHome() { showView('home-view'); }
+
+function initQuiz() {
+    let selectedUnits = [];
+    document.querySelectorAll('#book-selector-area input[type="checkbox"]:checked').forEach(cb => {
+        selectedUnits.push(cb.value);
+    });
+    if(selectedUnits.length === 0) { alert("请至少选择一个单元"); return; }
+    currentType = document.querySelector('input[name="qtype"]:checked').value;
+    activePool = getDb().filter(item => selectedUnits.includes(String(item.unit)));
+    if(activePool.length === 0) { alert("所选单元无词汇数据，请检查数据库"); return; }
+    activePool = shuffle(activePool);
+    wrongList = []; currIdx = 0;
+    showView('quiz-view');
+    renderQuestion();
+}
+
+function renderQuestion() {
+    if(currIdx >= activePool.length) { showResult(); return; }
+    hasAnswered = false;
+    const q = activePool[currIdx];
+    document.getElementById('info-progress').innerText = `进度：${currIdx+1}/${activePool.length}`;
+    document.getElementById('listen-audio-area').style.display = 'none';
+    document.getElementById('opts-box').style.display = 'none';
+    document.getElementById('input-box').style.display = 'none';
+    
+    const inputField = document.getElementById('blank-input');
+    if (inputField) {
+        inputField.value = '';
+        inputField.style.backgroundColor = '#fff';
+        inputField.placeholder = '输入单词';
+    }
+    
+    const qTextDiv = document.getElementById('q-text');
+    if(currentType === 'cn') {
+        document.getElementById('info-mode').innerText = "📘 英译中";
+        document.getElementById('opts-box').style.display = 'flex';
+        qTextDiv.innerHTML = `<span style="font-size:32px; font-weight:bold;">${q.word}</span><div class="hint-text">词性：${q.pos}</div>`;
+        genOptions(q, 'cn_opt');
+    } else if(currentType === 'fill') {
+        document.getElementById('info-mode').innerText = "✍️ 语境挖空";
+        document.getElementById('input-box').style.display = 'flex';
+        let masked = q.word[0] + "_".repeat(q.word.length-1);
+        qTextDiv.innerHTML = `<div>${q.fill_q || q.ctx_q || "请填写单词"}</div><div class="hint-text">首字母：${q.word[0]} (${q.word.length}字母)</div>`;
+    } else if(currentType === 'zh_en') {
+        document.getElementById('info-mode').innerText = "🇨🇳→🇬🇧 拼写";
+        document.getElementById('input-box').style.display = 'flex';
+        qTextDiv.innerHTML = `<span style="font-size:18px;">【${q.pos}】 ${q.cn}</span><div class="hint-text">首字母：${q.word[0]}</div>`;
+    } else if(currentType === 'context') {
+        document.getElementById('info-mode').innerText = "🧠 语义辨析";
+        document.getElementById('opts-box').style.display = 'flex';
+        qTextDiv.innerHTML = `<div>${q.ctx_q || q.fill_q || "请选择正确答案"}</div>`;
+        genOptions(q, 'en_opt');
+    } else if(currentType === 'listen') {
+        document.getElementById('listen-audio-area').style.display = 'block';
+        let sub = ['audio_to_cn','audio_to_en','audio_to_write'][Math.floor(Math.random()*3)];
+        currentListenSubtype = sub;
+        setTimeout(() => playCurrentWord(), 300);
+        if(sub === 'audio_to_cn') {
+            document.getElementById('info-mode').innerText = "🎧 听音选中文";
+            document.getElementById('opts-box').style.display = 'flex';
+            qTextDiv.innerHTML = "🎧 点击上方发音，选择正确释义";
+            genOptions(q, 'cn_opt');
+        } else if(sub === 'audio_to_en') {
+            document.getElementById('info-mode').innerText = "🎧 听音选英文";
+            document.getElementById('opts-box').style.display = 'flex';
+            qTextDiv.innerHTML = "🎧 点击发音，选择正确单词";
+            genOptions(q, 'en_opt');
+        } else {
+            document.getElementById('info-mode').innerText = "🎧 听写拼写";
+            document.getElementById('input-box').style.display = 'flex';
+            qTextDiv.innerHTML = `🎧 听录音，输入单词<div class="hint-text">首字母：${q.word[0]}</div>`;
+        }
+    }
+}
+
+function genOptions(correctObj, mode) {
+    let db = getDb();
+    let correctText = mode === 'cn_opt' ? `${correctObj.pos} ${correctObj.cn}` : correctObj.word;
+    let options = [correctText];
+    let sameUnitItems = db.filter(item => String(item.unit) === String(correctObj.unit) && item.word !== correctObj.word);
+    let distractors = sameUnitItems.length >= 3 ? sameUnitItems : db.filter(item => item.word !== correctObj.word);
+    shuffle(distractors);
+    for(let i=0; i<3 && distractors[i]; i++) {
+        let d = distractors[i];
+        options.push(mode === 'cn_opt' ? `${d.pos} ${d.cn}` : d.word);
+    }
+    shuffle(options);
+    let box = document.getElementById('opts-box');
+    box.innerHTML = '';
+    options.forEach(opt => {
+        let btn = document.createElement('button');
+        btn.className = 'opt-btn';
+        btn.innerText = opt;
+        btn.onclick = () => {
+            if(hasAnswered) return;
+            hasAnswered = true;
+            document.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
+            logTypeStatistics(currentType);
+            if(opt === correctText) {
+                btn.classList.add('correct');
+                logDailyWordPassed(correctObj.word);
+                setTimeout(() => { currIdx++; renderQuestion(); }, 500);
+            } else {
+                btn.classList.add('wrong');
+                document.querySelectorAll('.opt-btn').forEach(b => { if(b.innerText === correctText) b.classList.add('correct'); });
+                logError(correctObj);
+                setTimeout(() => { currIdx++; renderQuestion(); }, 1200);
+            }
+        };
+        box.appendChild(btn);
+    });
+}
+
+function checkSpellAnswer() {
+    if(hasAnswered) return;
+    let ans = document.getElementById('blank-input').value.trim().toLowerCase();
+    if(!ans) return;
+    hasAnswered = true;
+    const q = activePool[currIdx];
+    logTypeStatistics(currentType);
+    if(ans === q.word.toLowerCase()) {
+        document.getElementById('blank-input').style.backgroundColor = '#d4edda';
+        logDailyWordPassed(q.word);
+        setTimeout(() => { currIdx++; renderQuestion(); }, 500);
+    } else {
+        document.getElementById('blank-input').style.backgroundColor = '#f8d7da';
+        document.getElementById('blank-input').value = `❌ 正确答案: ${q.word}`;
+        logError(q);
+        setTimeout(() => { currIdx++; renderQuestion(); }, 1500);
+    }
+}
+
+function playCurrentWord() { if(activePool[currIdx]) speak(activePool[currIdx].word); }
+function speak(t) { if(window.speechSynthesis){ window.speechSynthesis.cancel(); let u = new SpeechSynthesisUtterance(t); u.lang='en-US'; u.rate=0.85; window.speechSynthesis.speak(u); } }
+
+function logError(obj) {
+    if(!wrongList.some(w=>w.word === obj.word)) wrongList.push(obj);
+    let hist = JSON.parse(localStorage.getItem('hsFinalHistory')) || {};
+    hist[obj.word] = hist[obj.word] || { unit: obj.unit, pos: obj.pos, cn: obj.cn, count: 0 };
+    hist[obj.word].count++;
+    localStorage.setItem('hsFinalHistory', JSON.stringify(hist));
+}
+function logTypeStatistics(t) { let s=JSON.parse(localStorage.getItem('hsTypeStats'))||{}; s[t]=(s[t]||0)+1; localStorage.setItem('hsTypeStats',JSON.stringify(s)); }
+function logDailyWordPassed(w) { let d=new Date().toLocaleDateString(); let store=JSON.parse(localStorage.getItem('hsDailyWords'))||{}; if(!store[d]) store[d]=[]; if(!store[d].includes(w)) store[d].push(w); localStorage.setItem('hsDailyWords',JSON.stringify(store)); }
+function renderCharts() {
+    let stats=JSON.parse(localStorage.getItem('hsTypeStats'))||{cn:0,fill:0,zh_en:0,context:0,listen:0};
+    if(radarChart) radarChart.destroy();
+    let ctxRadar = document.getElementById('radarChart');
+    if(ctxRadar) {
+        radarChart = new Chart(ctxRadar,{type:'radar',data:{labels:['英译中','挖空','中译英','辨析','听写'],datasets:[{label:'练习次数',data:[stats.cn,stats.fill,stats.zh_en,stats.context,stats.listen],backgroundColor:'rgba(76,175,80,0.2)',borderColor:'#4caf50'}]},options:{scales:{r:{beginAtZero:true}}}});
+    }
+    let daily=JSON.parse(localStorage.getItem('hsDailyWords'))||{}; let dates=Object.keys(daily).sort(); let counts=dates.map(d=>daily[d].length);
+    let ctxLine = document.getElementById('lineChart');
+    if(ctxLine) {
+        if(lineChart) lineChart.destroy();
+        lineChart = new Chart(ctxLine,{type:'line',data:{labels:dates.length?dates:[new Date().toLocaleDateString()],datasets:[{label:'每日新词',data:counts.length?counts:[0],borderColor:'#2ecc71',fill:true}]}});
+    }
+}
+function showResult() {
+    showView('result-view');
+    let total = activePool.slice(0,currIdx).length; if(currIdx>=activePool.length) total=activePool.length;
+    let correct = total - wrongList.length;
+    document.getElementById('result-score').innerHTML = `完成 ${total} 题<br>✅ 正确: ${correct} &nbsp; ❌ 薄弱: ${wrongList.length}`;
+    let area=document.getElementById('curr-wrong-area'), listDiv=document.getElementById('curr-wrong-list');
+    if(wrongList.length){ area.style.display='block'; listDiv.innerHTML=''; wrongList.forEach(w=>{listDiv.innerHTML+=`<div class="list-item"><span><strong>${w.word}</strong> ${w.pos} ${w.cn}</span></div>`;});}
+    else area.style.display='none';
+}
+function retryCurrentWrongs(){ activePool=shuffle([...wrongList]); wrongList=[]; currIdx=0; showView('quiz-view'); renderQuestion(); }
+function openWrongBook(){ showView('history-view'); let h=JSON.parse(localStorage.getItem('hsFinalHistory'))||{}; let box=document.getElementById('history-list'); box.innerHTML=''; let arr=Object.keys(h).map(k=>({word:k,...h[k]})).sort((a,b)=>b.count-a.count); if(!arr.length){box.innerHTML='<p>暂无错题</p>';return;} arr.forEach(i=>{box.innerHTML+=`<div class="list-item"><span><strong>${i.word}</strong> ${i.pos} ${i.cn}</span><span class="badge">错${i.count}次</span></div>`;});}
+function startHistoryQuiz(){ let h=JSON.parse(localStorage.getItem('hsFinalHistory'))||{}; let db=getDb(); let pool=Object.keys(h).map(k=>db.find(g=>g.word===k)).filter(v=>v); if(!pool.length) return; activePool=shuffle(pool); wrongList=[]; currIdx=0; currentType='cn'; showView('quiz-view'); renderQuestion(); }
+function clearHistory(){ if(confirm("清除所有数据？")){ localStorage.clear(); initUserStorage(); openWrongBook(); renderCharts(); } }
+document.getElementById('blank-input')?.addEventListener('keypress',e=>{if(e.key==='Enter')checkSpellAnswer();});
+function confirmQuit(){ if(confirm("终止练习？")) showResult(); }
+
+// 页面加载时初始化用户存储并检查登录状态
+initUserStorage();
+checkLoginStatus();
+</script>
+</body>
+</html>
